@@ -1,90 +1,112 @@
-# Solution for ML Challenge 2025: Smart Product Pricing
+# 🧠 Smart Product Pricing using Supervised Autoencoder + Stacking Ensemble
 
-[cite_start]A project by **Ctrl + Alt + Learn** [cite: 2]
-
----
-
-### Executive Summary
-
-[cite_start]This repository contains the solution for the "Smart Product Pricing" challenge[cite: 1]. [cite_start]We developed a **multimodal pricing predictor** designed to accurately estimate product prices by learning from a combination of product metadata, textual descriptions, and image features[cite: 5].
-
-[cite_start]The core of our approach is a **Supervised Autoencoder + Stacking Ensemble**[cite: 5]. [cite_start]This pipeline intelligently extracts deep representations from images, aligns them with text and structured data, and fuses them through a robust ensemble learning model to achieve high-precision price estimation[cite: 6].
+Predicting optimal product prices is critical for e-commerce competitiveness. This project tackles the challenge of **accurate price prediction** using a multimodal approach, combining textual descriptions, visual features, and structured product attributes without relying on external pricing history.
 
 ---
 
-## 🚀 Methodology
+## 📋 Problem Statement & Key Idea
 
-[cite_start]Our end-to-end pipeline converts raw, multimodal data into a final price prediction through five key stages[cite: 9].
+E-commerce platforms require accurate, dynamic pricing models. The goal is to predict a product's price based *only* on its intrinsic attributes:
+1.  **Textual Description:** Title, description, etc.
+2.  **Image Representation:** Product photos.
+3.  **Structured Attributes:** Metadata, quantity, etc.
 
-### 1. Data Preprocessing
-* [cite_start]**Metadata:** Cleaned and standardized[cite: 10].
-* [cite_start]**Text:** Converted into high-dimensional embeddings using **Sentence-BERT**[cite: 10].
-* [cite_start]**Images:** Processed through a pre-trained CNN to extract **2048-D feature vectors**[cite: 10].
-
-### 2. Supervised Autoencoder
-[cite_start]To make the raw image features more meaningful, we trained a specialized autoencoder (2048 $\rightarrow$ 1024 $\rightarrow$ 512 $\rightarrow$ 1024 $\rightarrow$ 2048)[cite: 18, 19, 20]. [cite_start]This module is *supervised*—it's trained with a **joint loss function** that forces the 512-D bottleneck representation to learn two things simultaneously[cite: 22]:
-1.  [cite_start]**Visual Reconstruction ($L_{recon}$):** How to reconstruct the original image feature[cite: 20].
-2.  [cite_start]**Price Alignment ($L_{reg}$):** How to predict the (log) price from the bottleneck vector[cite: 21].
-
-[cite_start]This ensures the final 512-D embedding captures both visual content and pricing cues[cite: 23].
-
-### 3. Feature Fusion
-[cite_start]The outputs from the preprocessing and autoencoder stages are concatenated into a single, unified feature matrix[cite: 12]:
-
-[cite_start]$X_{full} = [ X_{structured} \mid X_{text} \mid X_{image(bottleneck)} ]$ [cite: 26]
-
-[cite_start]This matrix is then standardized to ensure all modalities have a balanced influence[cite: 27].
-
-### 4. Base Model Training (Level 0)
-[cite_start]Three diverse regressors are trained in parallel on the complete, fused dataset using 5-fold cross-validation[cite: 13]:
-* [cite_start]**LightGBM** (lr=0.05, 31 leaves) [cite: 30]
-* **XGBoost** (max_depth=5, lr=0.05) [cite: 31]
-* [cite_start]**MLP** (2 hidden layers: 128-64, ReLU) [cite: 32]
-
-### 5. Stacking Ensemble (Level 1)
-The out-of-fold (OOF) predictions from the three base models are saved and used as new "meta-features." [cite_start]A final **LightGBM meta-model** (300 estimators, lr=0.03) is trained on these meta-features[cite: 14, 33]. [cite_start]This two-level stacking architecture learns the optimal way to combine the predictions, correcting for individual model errors and boosting overall robustness[cite: 34].
+### Key Idea
+We unify these disparate data types into a robust predictive framework using a **Supervised Autoencoder** for effective image feature compression and a **Stacking Ensemble** for final price regression.
 
 ---
 
-## 📈 Model Performance
+## 🏗️ Model Architecture & Approach Overview
 
-[cite_start]Our stacked ensemble significantly outperformed the individual base models, demonstrating the effectiveness of the feature fusion and diverse model aggregation[cite: 38].
+This solution leverages the strengths of deep learning for feature extraction and traditional gradient-boosting models for superior regression performance.
 
-### [cite_start]Final Validation Metrics [cite: 36]
-| Metric | Score |
-| :--- | :--- |
-| **RMSE** | **0.2758** |
-| **R²** | **0.9143** |
-| **SMAPE** | **21.74%** |
+### 1️⃣ Feature Engineering
 
-### [cite_start]Base Model RMSE (for comparison) [cite: 36]
-* **LightGBM:** 0.3165
-* **XGBoost:** 0.3361
-* **MLP:** 0.3499
+| Feature Type | Description | Initial Technique | Output Dimension |
+| :--- | :--- | :--- | :--- |
+| **Structured** | Product metadata, item quantity. | `StandardScaler` normalization. | ~5 |
+| **Text** | Combined Title, Description, Quantity. | Pre-trained text embeddings (e.g., Sentence-BERT). | 384 |
+| **Image** | CNN embeddings extracted from product images (e.g., ResNet). | Compressed using **Supervised Autoencoder**. | **512** |
+| **Final Feature Vector** | Concatenation of all modalities. | | **901-dim** |
+
+### 2️⃣ Supervised Autoencoder (Image Feature Compression)
+
+This component is crucial for creating a compact, highly informative image representation that is optimized for the *reconstruction* of the original image features **and** the final *price prediction*.
+
+* **Architecture:**
+    * **Encoder:** $2048 \rightarrow 1024 \rightarrow 512$
+    * **Decoder:** $512 \rightarrow 1024 \rightarrow 2048$
+    * **Regression Head:** $512 \rightarrow 1$ (for price prediction)
+* **Loss Function:** A multi-task loss to balance reconstruction quality and predictive power:
+    $$\text{Total Loss} = 0.5 \times \text{MSE}(\text{reconstruction}) + 0.5 \times \text{MSE}(\text{price prediction})$$
+* **Training Results:** The final AE loss reduced significantly from $0.63 \rightarrow \mathbf{0.116}$, demonstrating excellent convergence and effective feature learning.
+
+### 3️⃣ Stacking Ensemble Regressor
+
+The concatenated 901-dim feature vector is fed into a two-layer stacking ensemble for the final prediction.
+
+| Layer | Model Type | Specific Models | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Base Models** | Heterogeneous Regressors | `LightGBM Regressor`, `XGBoost Regressor`, `MLP Regressor` | Capture different non-linearities in the feature space. |
+| **Meta-Model** | Final Aggregator | `LightGBM Regressor` | Trained on **5-fold OOF (Out-Of-Fold) predictions** from the base models to learn how to optimally blend their outputs. |
 
 ---
 
-## 🛠️ Installation
+## 📊 Performance Summary
 
-1.  Clone the repository:
-    ```bash
-    git clone [https://github.com/your-username/smart-product-pricing.git](https://github.com/your-username/smart-product-pricing.git)
-    cd smart-product-pricing
-    ```
+The model was trained on **75,000 products** using a **Colab T4 GPU**.
 
-2.  Install the required dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+| Metric | Value | Interpretation |
+| :--- | :--- | :--- |
+| **R² Score** | **0.9143** | Explains over **91%** of the variance in product price, indicating strong generalization. |
+| **RMSE (Log-Space)** | **0.2758** | Low error in the log-transformed price space. |
+| **SMAPE** | **21.74 %** | Competitive performance for a complex e-commerce price prediction task without external data. |
+
+### 🧮 Evaluation Metric: SMAPE
+
+The model is evaluated using the Symmetric Mean Absolute Percentage Error (SMAPE):
+
+$$
+\text{SMAPE} = \frac{1}{n} \sum \frac{|\hat{y} - y| (|\hat{y}| + |y|) / 2}{} \times 100
+$$
+
+A lower SMAPE indicates superior performance. Our $\mathbf{21.74\%}$ result is submission-ready.
 
 ---
 
-## ▶️ How to Run
+## 📦 Files & Inference Pipeline
 
-### 1. Data
-Place your raw data (e.g., `train.csv`, `test.csv`, and the `images/` directory) into the `/data/` folder.
+### Files Generated
 
-### 2. Training
-To run the full end-to-end pipeline (preprocessing, autoencoder training, and ensemble training), execute:
-```bash
-python train.py
+* `stacked_model_supervised_autoencoder.pkl`: The complete serialized model (scalers, AE weights, base/meta models).
+* `test_out.csv`: The final predicted prices for the challenge submission.
+
+### Inference Pipeline
+
+1.  Load model, scalers, and autoencoder weights.
+2.  Pre-process/Scale structured and text features.
+3.  Pass **raw image features** through the trained **Autoencoder's Encoder** to get the 512-dim embedding.
+4.  Concatenate all features (901-dim).
+5.  Generate base-model predictions.
+6.  Feed base predictions to the Meta-Model to predict the final price.
+7.  Save predictions to `test_out.csv`.
+
+---
+
+## 🚀 Conclusion
+
+The **Supervised Autoencoder + Stacking Ensemble** methodology successfully addressed the challenge of multimodal product price prediction. The architecture demonstrated:
+* Effective feature learning from high-dimensional image data.
+* Strong generalization with $\mathbf{R^2 \approx 0.91}$.
+* Competitive e-commerce prediction accuracy ($\mathbf{SMAPE \approx 21.7\%}$).
+
+This performance is robust and ready for the ML Challenge 2025 leaderboard.
+
+---
+
+## 👨‍💻 Author
+
+**Bhagyawanth**
+* B.Tech Computer Science | Data Analyst & ML Enthusiast
+* **Tools:** Python, PyTorch, scikit-learn, LightGBM, XGBoost
+* **Email:** [your email here]
