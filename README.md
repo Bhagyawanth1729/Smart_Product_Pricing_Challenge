@@ -109,4 +109,4 @@ This performance is robust and ready for the ML Challenge 2025 leaderboard.
 **Bhagyawanth**
 * B.Tech Computer Science | Data Analyst & ML Enthusiast
 * **Tools:** Python, PyTorch, scikit-learn, LightGBM, XGBoost
-* **Email:** [your email here]
+* **Email:** [Bhagyawanthningappa@gmail.com]
