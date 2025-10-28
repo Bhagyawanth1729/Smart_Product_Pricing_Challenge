@@ -103,6 +103,8 @@ The **Supervised Autoencoder + Stacking Ensemble** methodology successfully addr
 This performance is robust and ready for the ML Challenge 2025 leaderboard.
 
 ---
+**Tools:** Python, PyTorch, scikit-learn, LightGBM, XGBoost.
+
 ## 👨‍💻 Team & Contact
 
 | Name | Role | Email |
