@@ -1,188 +1,90 @@
-🧠 Project Title:
+# Solution for ML Challenge 2025: Smart Product Pricing
 
-Smart Product Pricing using Supervised Autoencoder + Stacking Ensemble
+[cite_start]A project by **Ctrl + Alt + Learn** [cite: 2]
 
-📋 Problem Statement
+---
 
-E-commerce platforms rely heavily on accurate price prediction for optimal competitiveness and profitability. The goal of this challenge is to predict the price of products using their textual descriptions, image representations, and structured attributes — without relying on any external pricing data.
+### Executive Summary
 
-🧰 Approach Overview
+[cite_start]This repository contains the solution for the "Smart Product Pricing" challenge[cite: 1]. [cite_start]We developed a **multimodal pricing predictor** designed to accurately estimate product prices by learning from a combination of product metadata, textual descriptions, and image features[cite: 5].
 
-This solution integrates deep learning feature extraction and traditional machine learning regression using a stacking ensemble.
+[cite_start]The core of our approach is a **Supervised Autoencoder + Stacking Ensemble**[cite: 5]. [cite_start]This pipeline intelligently extracts deep representations from images, aligns them with text and structured data, and fuses them through a robust ensemble learning model to achieve high-precision price estimation[cite: 6].
 
-Key Idea:
+---
 
-Combine multiple data modalities — text, image, and structured product attributes — into a unified predictive model via:
+## 🚀 Methodology
 
-Supervised Autoencoder (for learning compact image embeddings)
+[cite_start]Our end-to-end pipeline converts raw, multimodal data into a final price prediction through five key stages[cite: 9].
 
-Stacked Ensemble of LightGBM, XGBoost, and MLP models
+### 1. Data Preprocessing
+* [cite_start]**Metadata:** Cleaned and standardized[cite: 10].
+* [cite_start]**Text:** Converted into high-dimensional embeddings using **Sentence-BERT**[cite: 10].
+* [cite_start]**Images:** Processed through a pre-trained CNN to extract **2048-D feature vectors**[cite: 10].
 
-LightGBM Meta-Model trained on out-of-fold predictions
+### 2. Supervised Autoencoder
+[cite_start]To make the raw image features more meaningful, we trained a specialized autoencoder (2048 $\rightarrow$ 1024 $\rightarrow$ 512 $\rightarrow$ 1024 $\rightarrow$ 2048)[cite: 18, 19, 20]. [cite_start]This module is *supervised*—it's trained with a **joint loss function** that forces the 512-D bottleneck representation to learn two things simultaneously[cite: 22]:
+1.  [cite_start]**Visual Reconstruction ($L_{recon}$):** How to reconstruct the original image feature[cite: 20].
+2.  [cite_start]**Price Alignment ($L_{reg}$):** How to predict the (log) price from the bottleneck vector[cite: 21].
 
-🏗️ Model Architecture
-1️⃣ Feature Engineering
-Feature Type	Description	Technique
-Structured Features	Product metadata, item quantity, etc.	StandardScaler normalization
-Text Features	Combined title, description, and item pack quantity	Pre-trained text embeddings (384-dim) + StandardScaler
-Image Features	CNN embeddings extracted from product images	Compressed using a Supervised Autoencoder to 512-dim
+[cite_start]This ensures the final 512-D embedding captures both visual content and pricing cues[cite: 23].
 
-All three feature types are concatenated → 901-dim final feature vector per product.
+### 3. Feature Fusion
+[cite_start]The outputs from the preprocessing and autoencoder stages are concatenated into a single, unified feature matrix[cite: 12]:
 
-2️⃣ Supervised Autoencoder (Image Feature Compression)
+[cite_start]$X_{full} = [ X_{structured} \mid X_{text} \mid X_{image(bottleneck)} ]$ [cite: 26]
 
-Encoder: 2048 → 1024 → 512
+[cite_start]This matrix is then standardized to ensure all modalities have a balanced influence[cite: 27].
 
-Decoder: 512 → 1024 → 2048
+### 4. Base Model Training (Level 0)
+[cite_start]Three diverse regressors are trained in parallel on the complete, fused dataset using 5-fold cross-validation[cite: 13]:
+* [cite_start]**LightGBM** (lr=0.05, 31 leaves) [cite: 30]
+* **XGBoost** (max_depth=5, lr=0.05) [cite: 31]
+* [cite_start]**MLP** (2 hidden layers: 128-64, ReLU) [cite: 32]
 
-Regression Head: 512 → 1
+### 5. Stacking Ensemble (Level 1)
+The out-of-fold (OOF) predictions from the three base models are saved and used as new "meta-features." [cite_start]A final **LightGBM meta-model** (300 estimators, lr=0.03) is trained on these meta-features[cite: 14, 33]. [cite_start]This two-level stacking architecture learns the optimal way to combine the predictions, correcting for individual model errors and boosting overall robustness[cite: 34].
 
-Loss Function:
+---
 
-Total Loss = 0.5 * MSE(reconstruction) + 0.5 * MSE(price prediction)
+## 📈 Model Performance
 
+[cite_start]Our stacked ensemble significantly outperformed the individual base models, demonstrating the effectiveness of the feature fusion and diverse model aggregation[cite: 38].
 
-Training: 50 epochs, batch size 256, Adam optimizer (lr = 1e-3)
+### [cite_start]Final Validation Metrics [cite: 36]
+| Metric | Score |
+| :--- | :--- |
+| **RMSE** | **0.2758** |
+| **R²** | **0.9143** |
+| **SMAPE** | **21.74%** |
 
-✅ Final AE loss reduced from 0.63 → 0.116 (excellent convergence)
+### [cite_start]Base Model RMSE (for comparison) [cite: 36]
+* **LightGBM:** 0.3165
+* **XGBoost:** 0.3361
+* **MLP:** 0.3499
 
-3️⃣ Stacking Ensemble (Supervised Learning Stage)
+---
 
-Base Models:
+## 🛠️ Installation
 
-LightGBM Regressor
+1.  Clone the repository:
+    ```bash
+    git clone [https://github.com/your-username/smart-product-pricing.git](https://github.com/your-username/smart-product-pricing.git)
+    cd smart-product-pricing
+    ```
 
-XGBoost Regressor
+2.  Install the required dependencies:
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-MLP Regressor
+---
 
-Meta-Model:
+## ▶️ How to Run
 
-LightGBM Regressor trained on 5-fold OOF (out-of-fold) predictions.
+### 1. Data
+Place your raw data (e.g., `train.csv`, `test.csv`, and the `images/` directory) into the `/data/` folder.
 
-⚙️ Training Setup
-Component	Setting
-Frameworks	PyTorch, scikit-learn, LightGBM, XGBoost
-Hardware	Colab GPU (T4)
-Data Size	75,000 products
-Loss Metrics	RMSE, R², SMAPE
-Random Seed	42
-📊 Performance Summary (Training Results)
-Metric	Value	Interpretation
-RMSE (Meta-Model)	0.2758	Low log-space error
-R² Score	0.9143	Explains 91% of price variance
-SMAPE	21.74 %	Strong performance for e-commerce price prediction
-📦 Files Generated
-File	Description
-stacked_model_supervised_autoencoder.pkl	Saved full model (scalers, autoencoder weights, base models, meta model)
-test_out.csv	Final predicted prices for submission
-test_pca_transformer.pkl (optional)	PCA reducer (if used for dimensionality reduction)
-🧩 Testing / Inference Pipeline
-
-Load saved model and scalers
-
-Scale structured, text, and image features from test data
-
-Pass image features through trained autoencoder encoder
-
-Concatenate all features
-
-Generate base-model predictions → feed to meta-model
-
-Predict final prices → save as test_out.csv
-
-🧮 Evaluation Metric
-
-The model is evaluated using SMAPE (Symmetric Mean Absolute Percentage Error):
-
-𝑆
-𝑀
-𝐴
-𝑃
-𝐸
-=
-1
-𝑛
-∑
-∣
-𝑦
-𝑝
-𝑟
-𝑒
-𝑑
-−
-𝑦
-𝑡
-𝑟
-𝑢
-𝑒
-∣
-(
-∣
-𝑦
-𝑝
-𝑟
-𝑒
-𝑑
-∣
-+
-∣
-𝑦
-𝑡
-𝑟
-𝑢
-𝑒
-∣
-)
-/
-2
-×
-100
-SMAPE=
-n
-1
-	​
-
-∑
-(∣y
-pred
-	​
-
-∣+∣y
-true
-	​
-
-∣)/2
-∣y
-pred
-	​
-
-−y
-true
-	​
-
-∣
-	​
-
-×100
-
-Lower SMAPE indicates better performance.
-
-🚀 Conclusion
-
-✅ The Supervised Autoencoder + Stacking Ensemble approach achieved:
-
-Strong generalization (R² ≈ 0.91)
-
-Competitive SMAPE (≈ 21.7%)
-
-Excellent balance of interpretability and predictive power.
-
-This performance is acceptable and submission-ready for the ML Challenge 2025 leaderboard.
-
-👨‍💻 Author
-
-Bhagyawanth
-B.Tech Computer Science | Data Analyst & ML Enthusiast
-📧 Email: [your email here]
-🧠 Tools: Python, PyTorch, scikit-learn, LightGBM, XGBoost
+### 2. Training
+To run the full end-to-end pipeline (preprocessing, autoencoder training, and ensemble training), execute:
+```bash
+python train.py
