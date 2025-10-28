@@ -107,7 +107,7 @@ This performance is robust and ready for the ML Challenge 2025 leaderboard.
 
 | Name | Role | Email |
 | :--- | :--- | :--- |
-| **Bhagyawanth** | Lead Data Scientist / Model Architect | [bhagyawanthningappa@gmail.com |
+| **Bhagyawanth** | Lead Data Scientist / Model Architect | bhagyawanthningappa@gmail.com |
 | **S Dhiraj** | Feature Engineering Specialist | singurudhiraj@gmail.com|
 | **Jonan Puro** | Data Preprocessing & Pipeline Engineer | jotharrison@gmail.com |
 
